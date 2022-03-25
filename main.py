@@ -86,6 +86,8 @@ arrow_fx = pygame.mixer.Sound('./sounds/arrow.wav')
 arrow_fx.set_volume(0.5)
 bomb_fx = pygame.mixer.Sound('./sounds/bomb.wav')
 bomb_fx.set_volume(0.5)
+coins_fx = pygame.mixer.Sound('./sounds/coins.wav')
+coins_fx.set_volume(0.5)
 
 #game vars
 GRAVITY = 0.75
@@ -156,6 +158,8 @@ class Character(pygame.sprite.Sprite):
         self.action = 0
         self.update_time = pygame.time.get_ticks()
         self.block_movement = False
+        self.treasure = 0
+        self.active = False
 
         #-------ai----------
         self.move_counter = 0
@@ -581,11 +585,13 @@ class Character(pygame.sprite.Sprite):
 heath_item_img = pygame.image.load('img/items/health.png').convert_alpha()
 fireflask_item_img = pygame.image.load('img/items/fireflask.png').convert_alpha()
 arrows_item_img = pygame.image.load('img/items/arrows.png').convert_alpha()
+coins_item_img = pygame.image.load('img/items/coins.png').convert_alpha()
 
 item_box = {
     'Health': heath_item_img,
     'Arrows': arrows_item_img,
-    'FireFlask': fireflask_item_img
+    'FireFlask': fireflask_item_img,
+    'Coins': coins_item_img
 }
 
 #------------------------------------------------------------------------
@@ -610,6 +616,11 @@ class Item(pygame.sprite.Sprite):
                 player.ammo += 6
             elif self.type == 'FireFlask':
                 player.bombs += 3
+            elif self.type == 'Coins':
+                coins_fx.play()
+                player.treasure += 50
+
+
             self.kill()
 #------------------------------------------------------------------------
 class HealthBar():
@@ -803,6 +814,10 @@ class World():
                     elif tile == 9:
                         item = Item('Health', x * TILE_SIZE, y * TILE_SIZE)
                         item_group.add(item)
+                    elif tile == 15:
+                        item = Item('Coins', x * TILE_SIZE, y * TILE_SIZE)
+                        item_group.add(item)
+
                     elif tile >= 10 and tile <= 13:
                         decoration = Decoration(img, x * TILE_SIZE, y * TILE_SIZE)
                         decoration_group.add(decoration)
@@ -947,17 +962,22 @@ while run:
         draw_text(f'Bombs:  ', font, (255,255,255), 10, 40)
         for x in range(player.bombs):
             screen.blit(bomb_img, (100 + (x * 20), 40))
-        draw_text('LSHIFT: Attack; SPACE: Shoot; LCTRL: Throw; C: Summon', font, (255,255,255), 10, 80)
+
+        draw_text(f'Treasure: {player.treasure}', font, (255,255,255), 10, 80)
+        draw_text('LSHIFT: Attack; SPACE: Shoot; LCTRL: Throw; C: Summon', font, (255,255,255), 10, 120)
 
         player.update()
         player.draw()
 
+
         for enemy in enemy_group:
-            enemy.ai()
+            if moving_left or moving_right or player.active == True:
+                enemy.ai()
             enemy.update()
             enemy.draw()
         for ally in summon_group:
-            ally.ally_ai()
+            if moving_left or moving_right or player.active == True:
+                ally.ally_ai()
             ally.update()
             ally.draw()
 
@@ -995,11 +1015,14 @@ while run:
         if player.alive:
             if shoot and player.sneaking == False:
                player.shoot()
+               player.active = True
                player.update_action(4)
             elif shoot and player.sneaking:
                 player.shoot()
+                player.active = True
                 player.update_action(8)
             elif attack:
+                player.active = True
                 player.attack()
             elif bomb and thrown == False and player.bombs > 0 and player.throw_cooldown <= 0:
                 firebomb = Throwable(player.rect.centerx + (0.5 * player.rect.size[0] * player.direction), \
@@ -1020,6 +1043,7 @@ while run:
                 player.update_action(1)
             else:
                 player.update_action(0)
+                player.active = False
             # screen scrolling and level change
             screen_scroll, map_complete = player.move(moving_left, moving_right)
             bg_scroll -= screen_scroll
